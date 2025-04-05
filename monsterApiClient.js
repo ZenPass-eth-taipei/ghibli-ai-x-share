@@ -10,8 +10,8 @@ async function generateFantasyImage(imageUrl, prompt, apiKey) {
     negprompt: "deformed, bad anatomy, disfigured, poorly drawn face",
     steps: 50,
     guidance_scale: 12.5,
-    image_guidance_scale: 1.0,
-    seed: 21,
+    image_guidance_scale: 1.5,
+    seed: 2414,
   };
 
   const headers = {
