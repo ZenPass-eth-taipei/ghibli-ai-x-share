@@ -1,10 +1,13 @@
 const express = require("express");
 const bodyParser = require("body-parser");
 const { generateFantasyImage } = require("./monsterApiClient");
+const { uploadToPinata } = require("./pinataClient");
 const cors = require("cors");
 const axios = require("axios");
 require("dotenv").config();
+const multer = require("multer");
 
+const upload = multer();
 const app = express();
 const port = 3000;
 
@@ -50,6 +53,55 @@ const pollStatusUrl = async (
 
   throw new Error("Image generation timed out");
 };
+
+// API endpoint for uploading images
+app.post("/upload", upload.single("file"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "No image file provided" });
+    }
+
+    const ipfsUrl = await uploadToPinata(req.file.buffer);
+    const imageUrl = ipfsUrl;
+
+    if (!imageUrl) {
+      return res.status(400).json({ error: "imageUrl is required" });
+    }
+
+    const prompt = "create a Ghibli style art";
+
+    try {
+      console.log("Calling generateFantasyImage...");
+      const data = await generateFantasyImage(imageUrl, prompt, API_Key);
+      console.log("Initial Response:", data);
+
+      const statusUrl = data.status_url;
+      if (!statusUrl) {
+        return res
+          .status(500)
+          .json({ error: "status_url not found in response" });
+      }
+
+      console.log("Polling status_url:", statusUrl);
+      const output = await pollStatusUrl(statusUrl, API_Key);
+
+      if (!output || output.length === 0) {
+        return res.status(500).json({ error: "No output found in response" });
+      }
+
+      res.json({
+        message: "Image generation successful",
+        output: output,
+      });
+    } catch (error) {
+      console.error("Error during image generation:", error.message);
+      res.status(500).json({ error: error.message });
+    }
+  } catch (error) {
+    console.error("Upload error:", error.message);
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Endpoint to generate a fantasy image
 app.post("/generate-image", async (req, res) => {
